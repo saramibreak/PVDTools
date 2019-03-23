@@ -1,0 +1,6 @@
+Debug/
+Release/
+ipch/
+.vs/
+PVDTools.VC.*
+PVDTools.vcxproj.user
