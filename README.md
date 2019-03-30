@@ -3,13 +3,22 @@
 This is a collection of tools to decode VideoNow PVD discs.  Below are instructions.
 
 Original binary and source code is [here](https://sourceforge.net/projects/pvdtools/)  
-Technical documentation is [here](https://web.archive.org/web/20161026023116/http://pvdtools.sourceforge.net:80/format.txt)
+Technical documentation about black & white disc is [here](https://web.archive.org/web/20161026023116/http://pvdtools.sourceforge.net:80/format.txt)
+Technical documentation about color disc is [here](https://www.videohelp.com/forum/viewtopic.php?p=1241647#1241647)
 
 ## Usage
 1. Execute command-line and type below  
-   PVDTools.exe [binary file]  
-   ** binary file is 2352 bytes per sector. You can generate it by [DiscImageCreator](https://github.com/saramibreak/DiscImageCreator)  
+   PVDTools.exe bw [binary file]  
    => You can get 4 raw files and 1 [wav file](https://en.wikipedia.org/wiki/WAV) and multiple [pgm files](https://en.wikipedia.org/wiki/Netpbm_format) in the current directory.
+   
+   PVDTools.exe color [binary file]  
+   => You can get 2 raw files and 1 wav file and multiple ppm files in the current directory.
+   
+   PVDTools.exe xp [binary file]  
+   => You can get 2 raw files and 1 wav file and multiple ppm files in the current directory.
+
+   ** binary file is 2352 bytes per sector. You can generate it by [DiscImageCreator](https://github.com/saramibreak/DiscImageCreator)  
+   
 2. Get [irfanview](https://www.irfanview.com/) if you don't have it already
 3. Select Batch Convert/Rename from the file menu.
 4. Select all of the extracted frames(hint:  hold down the shift key and select the first and last displayed)

@@ -40,6 +40,9 @@ int split16(char* rawfile)
 		fwrite(&r1, 1, 1, foutr);
 		fwrite(&r2, 1, 1, foutr);
 	}
+	fclose(fin);
+	fclose(foutr);
+	fclose(foutl);
 	return 0;
 }
 
@@ -73,6 +76,9 @@ int split8()
 		fwrite(&r1, 1, 1, foutr);
 		/*  fwrite(&r2,1,1,foutr); */
 	}
+	fclose(fin);
+	fclose(foutr);
+	fclose(foutl);
 	return 0;
 }
 
@@ -205,7 +211,7 @@ int xtract()
 	// skip pregap (if exists) and first header (1340 bytes)
 	size_t seeksize = fseekToHeader(fin);
 	printf("Seek size: %d\n", seeksize);
-	size = size - seeksize;
+	size = size - seeksize - 1340;
 
 	for (tt = size / 5880; tt > 0; tt--)
 	{
@@ -260,25 +266,235 @@ int xtract()
 	return 0;
 }
 
+int splitm(char* rawfile)
+{
+	FILE * fin;
+	FILE * foutr;
+	FILE * foutl;
+	char l1[9] = {};
+	char r1;
+	long finSize;
+
+	fin = fopen(rawfile, "rb");
+	if (!fin) { printf("No input!!!"); exit(2); }
+	foutl = fopen("input-raw-left2.raw", "wb");
+	foutr = fopen("input-raw-right2.raw", "wb");
+	fseek(fin, 0, 2);
+	finSize = ftell(fin);
+	fseek(fin, 0, 0);
+	while (!feof(fin) && !ferror(fin)) {
+		fread(&l1, 1, 9, fin);
+		fwrite(&l1, 1, 9, foutl);
+		fread(&r1, 1, 1, fin);
+		fwrite(&r1, 1, 1, foutr);
+	}
+	fclose(fin);
+	fclose(foutr);
+	fclose(foutl);
+	return 0;
+}
+
+int addh2()
+{
+	FILE * fin;
+	FILE * fout;
+	long finSize;
+	char * buffer;
+	fin = fopen("input-raw-right2.raw", "rb");
+	if (!fin) { printf("ERROR!"); exit(2); }
+	char riff[] = "RIFF";
+	char wave[] = "WAVE";
+	char fmt[] = "fmt ";
+	long sc1size = 16;
+	int audiofmt = 1;
+	int numchanels = 2;
+	long smprate = 17640;
+	long byterate = 35280;
+	int blkalign = 1;
+	int bits = 8;
+	char dataa[] = "data";
+	fout = fopen("input-right2.wav", "wb");
+	fwrite(riff, 4, 1, fout);
+	fseek(fin, 0, 2);
+	finSize = ftell(fin);
+	fseek(fin, 0, 0);
+	long finSizea;
+	finSizea = finSize + 40;
+	fwrite(&finSizea, 4, 1, fout);
+	fwrite(wave, 4, 1, fout);
+	fwrite(fmt, 4, 1, fout);
+	fwrite(&sc1size, 4, 1, fout);
+	fwrite(&audiofmt, 2, 1, fout);
+	fwrite(&numchanels, 2, 1, fout);
+	fwrite(&smprate, 4, 1, fout);
+	fwrite(&byterate, 4, 1, fout);
+	fwrite(&blkalign, 2, 1, fout);
+	fwrite(&bits, 2, 1, fout);
+	fwrite(dataa, 4, 1, fout);
+	fwrite(&finSize, 4, 1, fout);
+	buffer = (char*)malloc(finSize);
+	fread(buffer, 1, finSize, fin);
+	fwrite(buffer, 1, finSize, fout);
+	fclose(fin);
+	fclose(fout);
+	return 0;
+}
+
+int isColor(char* buf)
+{
+	int nRet = 0;
+	if (buf[0] == (char)0x81 || buf[1] == (char)0xe3 || buf[2] == (char)0xe3 ||
+		buf[3] == (char)0xc7 || buf[4] == (char)0xc7 || buf[5] == (char)0x81 ||
+		buf[6] == (char)0x81 || buf[7] == (char)0xe3 || buf[8] == (char)0xc7) {
+		nRet = 1;
+	}
+	return nRet;
+
+}
+
+size_t fseekToColor(FILE* fp)
+{
+	size_t size = 0;
+	char buf[9] = {};
+	while (!feof(fp) && !ferror(fp)) {
+		size += fread(buf, 1, 9, fp);
+		if (isColor(buf)) {
+			fseek(fp, 351, SEEK_CUR);
+			size += 351;
+			break;
+		}
+		fseek(fp, -8, SEEK_CUR);
+	}
+	return size;
+}
+
+int xtractColor()
+{
+	FILE * fin;
+	FILE * fout;
+	char buffer;
+	long size;
+	long tt;
+	char fname[20];
+	long ts = 0;
+	
+	fin = fopen("input-raw-left2.raw", "rb");
+	if (!fin) exit(1);
+	fseek(fin, 0, 2);
+	size = ftell(fin);
+	rewind(fin);
+	size_t seeksize = fseekToColor(fin);
+	printf("Seek size: %d\n", seeksize);
+	size = size - seeksize - 360;
+
+	for (tt = size / 17640; tt > 0; tt--)
+	{
+		ts += 1;
+		printf("\rProcessing frame number %li", ts);
+		sprintf(fname, "%i.ppm", ts);
+		fout = fopen(fname, "wb");
+		fputs("P6\n36 160\n255\n", fout);
+		
+		for (int i = 0; i < 17280; i++) {
+			fread(&buffer, 1, 1, fin);
+			fwrite(&buffer, 1, 1, fout);
+		}
+		fclose(fout);
+		fseek(fin, 360, SEEK_CUR);
+	}
+	printf("\n");
+	fclose(fin);
+	return 0;
+}
+
+size_t fseekToXp(FILE* fp)
+{
+	size_t size = 0;
+	char buf[9] = {};
+	while (!feof(fp) && !ferror(fp)) {
+		size += fread(buf, 1, 9, fp);
+		if (isColor(buf)) {
+			fseek(fp, 495, SEEK_CUR);
+			size += 495;
+			break;
+		}
+		fseek(fp, -8, SEEK_CUR);
+	}
+	return size;
+}
+
+int xtractXp()
+{
+	FILE * fin;
+	FILE * fout;
+	char buffer;
+	long size;
+	long tt;
+	char fname[20];
+	long ts = 0;
+
+	fin = fopen("input-raw-left2.raw", "rb");
+	if (!fin) exit(1);
+	fseek(fin, 0, 2);
+	size = ftell(fin);
+	rewind(fin);
+	size_t seeksize = fseekToXp(fin);
+	printf("Seek size: %d\n", seeksize);
+	size = size - seeksize - 504;
+
+	for (tt = size / 17784; tt > 0; tt--)
+	{
+		ts += 1;
+		printf("\rProcessing frame number %li", ts);
+		sprintf(fname, "%i.ppm", ts);
+		fout = fopen(fname, "wb");
+		fputs("P6\n36 160\n255\n", fout);
+
+		for (int i = 0; i < 17280; i++) {
+			fread(&buffer, 1, 1, fin);
+			fwrite(&buffer, 1, 1, fout);
+		}
+		fclose(fout);
+		fseek(fin, 504, SEEK_CUR);
+	}
+	printf("\n");
+	fclose(fin);
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
-	if (argc != 2) {
+	if (argc != 3) {
 		printf(
 			"This is a collection of tools to decode VideoNow PVD discs.\n"
 			"Usage\n"
-			"\t PVDTools.exe <raw file>\n"
+			"\t PVDTools.exe bw <raw file>\n"
 			"\t\t Splits stereo 16-bit files into two mono 16-bit files.\n"
 			"\t\t -> created input-raw-left.raw and input-raw-right.raw\n"
 			"\t\t Splits 8-bit stereo tracks into 2 8-bit mono tracks, skipping the first 2531 bytes.\n"
 			"\t\t -> created input-raw-left2.raw and input-raw-right2.raw\n"
 			"\t\t -> created input-right2.wav from input-raw-right2.raw\n"
+			"\t PVDTools.exe color <raw file>\n"
+			"\t PVDTools.exe xp <raw file>\n"
 		);
 	}
 	else {
-		split16(argv[1]);
-		split8();
-		addh();
-		xtract();
+		if (!strcmp(argv[1], "bw")) {
+			split16(argv[2]);
+			split8();
+			addh();
+			xtract();
+		}
+		else if (!strcmp(argv[1], "color")) {
+			splitm(argv[2]);
+			addh2();
+			xtractColor();
+		}
+		else if (!strcmp(argv[1], "xp")) {
+			splitm(argv[2]);
+			addh2();
+			xtractXp();
+		}
 	}
 	return 0;
 }
