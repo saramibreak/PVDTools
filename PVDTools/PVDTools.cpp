@@ -4,7 +4,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
-Copyright (c) 2003 Tyler Knott, 2019 Sarami*/
+Copyright (c) 2003 Tyler Knott, 2020 Sarami*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -79,6 +79,7 @@ int split8()
 	fclose(fin);
 	fclose(foutr);
 	fclose(foutl);
+	remove("input-raw-right.raw");
 	return 0;
 }
 
@@ -123,10 +124,13 @@ int addh()
 	fwrite(dataa, 4, 1, fout);
 	fwrite(&finSize, 4, 1, fout);
 	buffer = (char*)malloc(finSize);
-	fread(buffer, 1, finSize, fin);
-	fwrite(buffer, 1, finSize, fout);
+	if (buffer) {
+		fread(buffer, 1, finSize, fin);
+		fwrite(buffer, 1, finSize, fout);
+	}
 	fclose(fin);
 	fclose(fout);
+	remove("input-raw-right2.raw");
 	return 0;
 }
 
@@ -263,6 +267,7 @@ int xtract()
 	}
 	printf("\n");
 	fclose(fin);
+	remove("input-raw-left.raw");
 	return 0;
 }
 
@@ -282,7 +287,7 @@ int splitm(char* rawfile)
 	fseek(fin, 0, 2);
 	finSize = ftell(fin);
 	fseek(fin, 0, 0);
-	while (!feof(fin) && !ferror(fin)) {
+	for (int i = 0; i < finSize; i += 10) {
 		fread(&l1, 1, 9, fin);
 		fwrite(&l1, 1, 9, foutl);
 		fread(&r1, 1, 1, fin);
@@ -333,10 +338,13 @@ int addh2()
 	fwrite(dataa, 4, 1, fout);
 	fwrite(&finSize, 4, 1, fout);
 	buffer = (char*)malloc(finSize);
-	fread(buffer, 1, finSize, fin);
-	fwrite(buffer, 1, finSize, fout);
+	if (buffer) {
+		fread(buffer, 1, finSize, fin);
+		fwrite(buffer, 1, finSize, fout);
+	}
 	fclose(fin);
 	fclose(fout);
+	remove("input-raw-right2.raw");
 	return 0;
 }
 
@@ -368,7 +376,7 @@ size_t fseekToColor(FILE* fp)
 	return size;
 }
 
-int xtractColor()
+int xtractColor(bool isGray)
 {
 	FILE * fin;
 	FILE * fout;
@@ -385,15 +393,25 @@ int xtractColor()
 	rewind(fin);
 	size_t seeksize = fseekToColor(fin);
 	printf("Seek size: %d\n", seeksize);
-	size = size - seeksize - 360;
+	size = size - seeksize + 360;
 
 	for (tt = size / 17640; tt > 0; tt--)
 	{
 		ts += 1;
 		printf("\rProcessing frame number %li", ts);
-		sprintf(fname, "%i.ppm", ts);
+		if (isGray) {
+			sprintf(fname, "%i.pgm", ts);
+		}
+		else {
+			sprintf(fname, "%i.ppm", ts);
+		}
 		fout = fopen(fname, "wb");
-		fputs("P6\n36 160\n255\n", fout);
+		if (isGray) {
+			fputs("P5\n108 160\n255\n", fout);
+		}
+		else {
+			fputs("P6\n36 160\n255\n", fout);
+		}
 		
 		for (int i = 0; i < 17280; i++) {
 			fread(&buffer, 1, 1, fin);
@@ -404,6 +422,7 @@ int xtractColor()
 	}
 	printf("\n");
 	fclose(fin);
+	remove("input-raw-left2.raw");
 	return 0;
 }
 
@@ -423,7 +442,7 @@ size_t fseekToXp(FILE* fp)
 	return size;
 }
 
-int xtractXp()
+int xtractXp(bool isGray)
 {
 	FILE * fin;
 	FILE * fout;
@@ -440,15 +459,25 @@ int xtractXp()
 	rewind(fin);
 	size_t seeksize = fseekToXp(fin);
 	printf("Seek size: %d\n", seeksize);
-	size = size - seeksize - 504;
+	size = size - seeksize + 504;
 
 	for (tt = size / 17784; tt > 0; tt--)
 	{
 		ts += 1;
 		printf("\rProcessing frame number %li", ts);
-		sprintf(fname, "%i.ppm", ts);
+		if (isGray) {
+			sprintf(fname, "%i.pgm", ts);
+		}
+		else {
+			sprintf(fname, "%i.ppm", ts);
+		}
 		fout = fopen(fname, "wb");
-		fputs("P6\n36 160\n255\n", fout);
+		if (isGray) {
+			fputs("P5\n108 160\n255\n", fout);
+		}
+		else {
+			fputs("P6\n36 160\n255\n", fout);
+		}
 
 		for (int i = 0; i < 17280; i++) {
 			fread(&buffer, 1, 1, fin);
@@ -459,23 +488,26 @@ int xtractXp()
 	}
 	printf("\n");
 	fclose(fin);
+	remove("input-raw-left2.raw");
 	return 0;
 }
 
 int main(int argc, char *argv[])
 {
-	if (argc != 3) {
+	if (argc != 3 && argc != 4) {
 		printf(
 			"This is a collection of tools to decode VideoNow PVD discs.\n"
 			"Usage\n"
 			"\t PVDTools.exe bw <raw file>\n"
-			"\t\t Splits stereo 16-bit files into two mono 16-bit files.\n"
-			"\t\t -> created input-raw-left.raw and input-raw-right.raw\n"
-			"\t\t Splits 8-bit stereo tracks into 2 8-bit mono tracks, skipping the first 2531 bytes.\n"
-			"\t\t -> created input-raw-left2.raw and input-raw-right2.raw\n"
-			"\t\t -> created input-right2.wav from input-raw-right2.raw\n"
+			"\t\t Output pgm (40 x 80 gray scale) and wav file\n"
 			"\t PVDTools.exe color <raw file>\n"
+			"\t\t Output ppm (36 x 160 incomplete color) and wav file\n"
+			"\t PVDTools.exe color <raw file> /g\n"
+			"\t\t Output pgm (108 x 160 gray scale) and wav file\n"
 			"\t PVDTools.exe xp <raw file>\n"
+			"\t\t Output ppm (36 x 160 incomplete color) and wav file\n"
+			"\t PVDTools.exe xp <raw file> /g\n"
+			"\t\t Output pgm (108 x 160 gray scale) and wav file\n"
 		);
 	}
 	else {
@@ -488,12 +520,22 @@ int main(int argc, char *argv[])
 		else if (!strcmp(argv[1], "color")) {
 			splitm(argv[2]);
 			addh2();
-			xtractColor();
+			if (argc == 4 && !strncmp(argv[3], "/g", 2)) {
+				xtractColor(true);
+			}
+			else {
+				xtractColor(false);
+			}
 		}
 		else if (!strcmp(argv[1], "xp")) {
 			splitm(argv[2]);
 			addh2();
-			xtractXp();
+			if (argc == 4 && !strncmp(argv[3], "/g", 2)) {
+				xtractXp(true);
+			}
+			else {
+				xtractXp(false);
+			}
 		}
 	}
 	return 0;
