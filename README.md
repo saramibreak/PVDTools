@@ -44,7 +44,7 @@ Technical documentation about color disc is [here](https://www.videohelp.com/for
 18. When IrfanView is done click exit and close IrfanView
 19. Open [VirtualDub](http://www.virtualdub.org/)
 20. Select File>Open and open 1.bmp
-21. Select Video>Frame Rate and select "Change framerate to" and enter 15 (color or xp disc is 18)
+21. Select Video>Frame Rate and select "Change so video and audio durations match"
 22. Click OK
 23. Select Audio>WAV Audio and open input-right2.wav in the same directory as the original wav file.
 24. If you want to convert avi, Select File>Save as AVI.
