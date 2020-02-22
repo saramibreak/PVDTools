@@ -299,12 +299,12 @@ int splitm(char* rawfile)
 	return 0;
 }
 
-int addh2()
+int addhColor(long frmSize, size_t seekPos)
 {
-	FILE * fin;
-	FILE * fout;
+	FILE* fin;
+	FILE* fout;
 	long finSize;
-	char * buffer;
+	char buffer;
 	fin = fopen("input-raw-right2.raw", "rb");
 	if (!fin) { printf("ERROR!"); exit(2); }
 	char riff[] = "RIFF";
@@ -321,7 +321,7 @@ int addh2()
 	fout = fopen("input-right2.wav", "wb");
 	fwrite(riff, 4, 1, fout);
 	fseek(fin, 0, 2);
-	finSize = ftell(fin);
+	finSize = frmSize * 1960;
 	fseek(fin, 0, 0);
 	long finSizea;
 	finSizea = finSize + 40;
@@ -337,10 +337,67 @@ int addh2()
 	fwrite(&bits, 2, 1, fout);
 	fwrite(dataa, 4, 1, fout);
 	fwrite(&finSize, 4, 1, fout);
-	buffer = (char*)malloc(finSize);
-	if (buffer) {
-		fread(buffer, 1, finSize, fin);
-		fwrite(buffer, 1, finSize, fout);
+
+	long tt = 0;
+	for (tt = finSize / 1960; tt > 0; tt--)
+	{
+		for (int i = 0; i < 1960; i++) {
+			fread(&buffer, 1, 1, fin);
+			fwrite(&buffer, 1, 1, fout);
+		}
+	}
+	fclose(fin);
+	fclose(fout);
+	remove("input-raw-right2.raw");
+	return 0;
+}
+
+int addhXp(long frmSize, size_t seekPos)
+{
+	FILE* fin;
+	FILE* fout;
+	long finSize;
+	char buffer;
+	fin = fopen("input-raw-right2.raw", "rb");
+	if (!fin) { printf("ERROR!"); exit(2); }
+	char riff[] = "RIFF";
+	char wave[] = "WAVE";
+	char fmt[] = "fmt ";
+	long sc1size = 16;
+	int audiofmt = 1;
+	int numchanels = 2;
+	long smprate = 17640;
+	long byterate = 35280;
+	int blkalign = 1;
+	int bits = 8;
+	char dataa[] = "data";
+	fout = fopen("input-right2.wav", "wb");
+	fwrite(riff, 4, 1, fout);
+	fseek(fin, 0, 2);
+	finSize = frmSize * 1976;
+	fseek(fin, 0, 0);
+	long finSizea;
+	finSizea = finSize + 40;
+	fwrite(&finSizea, 4, 1, fout);
+	fwrite(wave, 4, 1, fout);
+	fwrite(fmt, 4, 1, fout);
+	fwrite(&sc1size, 4, 1, fout);
+	fwrite(&audiofmt, 2, 1, fout);
+	fwrite(&numchanels, 2, 1, fout);
+	fwrite(&smprate, 4, 1, fout);
+	fwrite(&byterate, 4, 1, fout);
+	fwrite(&blkalign, 2, 1, fout);
+	fwrite(&bits, 2, 1, fout);
+	fwrite(dataa, 4, 1, fout);
+	fwrite(&finSize, 4, 1, fout);
+	
+	long tt = 0;
+	for (tt = finSize / 1976; tt > 0; tt--)
+	{
+		for (int i = 0; i < 1976; i++) {
+			fread(&buffer, 1, 1, fin);
+			fwrite(&buffer, 1, 1, fout);
+		}
 	}
 	fclose(fin);
 	fclose(fout);
@@ -376,7 +433,7 @@ size_t fseekToColor(FILE* fp)
 	return size;
 }
 
-int xtractColor(bool isGray)
+int xtractColor(bool isGray, long* frmSize, size_t* seekPos)
 {
 	FILE * fin;
 	FILE * fout;
@@ -391,11 +448,12 @@ int xtractColor(bool isGray)
 	fseek(fin, 0, 2);
 	size = ftell(fin);
 	rewind(fin);
-	size_t seeksize = fseekToColor(fin);
-	printf("Seek size: %d\n", seeksize);
-	size = size - seeksize + 360;
+	*seekPos = fseekToColor(fin) - 360;
+	printf("Seek size: %d\n", *seekPos);
+	size = size - *seekPos;
 
-	for (tt = size / 17640; tt > 0; tt--)
+	*frmSize = size / 17640;
+	for (tt = *frmSize; tt > 0; tt--)
 	{
 		ts += 1;
 		printf("\rProcessing frame number %li", ts);
@@ -442,7 +500,7 @@ size_t fseekToXp(FILE* fp)
 	return size;
 }
 
-int xtractXp(bool isGray)
+int xtractXp(bool isGray, long* frmSize, size_t* seekPos)
 {
 	FILE * fin;
 	FILE * fout;
@@ -457,11 +515,12 @@ int xtractXp(bool isGray)
 	fseek(fin, 0, 2);
 	size = ftell(fin);
 	rewind(fin);
-	size_t seeksize = fseekToXp(fin);
-	printf("Seek size: %d\n", seeksize);
-	size = size - seeksize + 504;
+	*seekPos = fseekToXp(fin) - 504;
+	printf("Seek size: %d\n", *seekPos);
+	size = size - *seekPos;
 
-	for (tt = size / 17784; tt > 0; tt--)
+	*frmSize = size / 17784;
+	for (tt = *frmSize; tt > 0; tt--)
 	{
 		ts += 1;
 		printf("\rProcessing frame number %li", ts);
@@ -511,6 +570,8 @@ int main(int argc, char *argv[])
 		);
 	}
 	else {
+		long frmSize = 0;
+		size_t seekPos = 0;
 		if (!strcmp(argv[1], "bw")) {
 			split16(argv[2]);
 			split8();
@@ -519,23 +580,23 @@ int main(int argc, char *argv[])
 		}
 		else if (!strcmp(argv[1], "color")) {
 			splitm(argv[2]);
-			addh2();
 			if (argc == 4 && !strncmp(argv[3], "/g", 2)) {
-				xtractColor(true);
+				xtractColor(true, &frmSize, &seekPos);
 			}
 			else {
-				xtractColor(false);
+				xtractColor(false, &frmSize, &seekPos);
 			}
+			addhColor(frmSize, seekPos);
 		}
 		else if (!strcmp(argv[1], "xp")) {
 			splitm(argv[2]);
-			addh2();
 			if (argc == 4 && !strncmp(argv[3], "/g", 2)) {
-				xtractXp(true);
+				xtractXp(true, &frmSize, &seekPos);
 			}
 			else {
-				xtractXp(false);
+				xtractXp(false, &frmSize, &seekPos);
 			}
+			addhXp(frmSize, seekPos);
 		}
 	}
 	return 0;
