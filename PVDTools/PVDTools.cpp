@@ -270,6 +270,7 @@ int xtract()
 	printf("\n");
 	fclose(fin);
 	remove("input-raw-left.raw");
+	remove("input-raw-left2.raw");
 	return 0;
 }
 
